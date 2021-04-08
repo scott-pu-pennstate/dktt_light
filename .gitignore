@@ -1,0 +1,31 @@
+# credentials, just in case
+*.pem
+*_rsa
+
+# folders
+model/*
+notebooks/*
+checkpoints/*
+log/*
+build/
+venv/*
+.idea
+__pycache__/
+.ipynb_checkpoints/
+.pytest_cache
+*.egg-info/
+
+# database
+*.db
+
+# useless files
+*.pyc
+*.log
+*.bin
+.cache
+.DS_Store
+~*.docx
+
+#exceptions
+# both !**/*.md and !*.md works
+!*.md
