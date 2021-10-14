@@ -8,6 +8,48 @@ import tensorflow as tf
 import math
 
 
+def get_block_attention_bias(
+        block_seq1,
+        block_seq2,
+        allow_current=False,
+        dtype=tf.float32):
+    r"""
+    Parameters
+    ----------
+    block_seq1 : tf.Tensor
+        a tensor of time block, shape = [batch_size, seq_len]
+    block_seq2 : tf.Tensor
+        a tensor of time block, shape = [batch_size, seq_len]
+    allow_current : bool
+        if True, allow seq to attention to current block
+    dtype : tf.dtypes.DType
+        default to tf.float32, also support tf.float16
+
+    Returns
+    -------
+    attention_bias: tf.Tensor
+        a tensor of shape [batch_size, 1, seq_len, seq_len], the semantic
+        meaning of each dimension is [batch_size, num_heads, seq_len, seq_len]
+    """
+
+    neg_inf = _NEG_INF_FP16 if dtype == tf.float16 else _NEG_INF_FP32
+
+    seq1 = tf.expand_dims(block_seq1, axis=1)
+    seq2 = tf.expand_dims(block_seq2, axis=1)
+    seq2_t = tf.transpose(seq2, perm=[0, 2, 1])
+
+    # block smaller than current block is valid
+    if allow_current:
+        valid_locs = tf.cast(tf.greater_equal(seq2_t - seq1, 0), dtype=dtype)
+    else:
+        valid_locs = tf.cast(tf.greater(seq2_t - seq1, 0), dtype=dtype)
+
+    valid_locs = tf.expand_dims(valid_locs, axis=1)
+    decoder_bias = neg_inf * (1.0 - valid_locs)
+
+    return decoder_bias
+
+
 class LayerNormalization(tf.keras.layers.Layer):
     """ apply layer normalization"""
     def __init__(self, hidden_size, epsilon=1e-6, dtype='float32', trainable=False):
@@ -534,12 +576,22 @@ class DKTTLight(tf.keras.Model):
         return logits
 
     def get_attention_bias(self, inputs):
-        r""" get attention bias
-        Arguments:
-            inputs (dict)
-        Return:
-            enc_self_attn, enc_dec_attn, dec_self_attn
-            shape = [batch_size, 1, seq_len, seq_len], where 1 is reserved to broadcast to num_heads
+        """ get attention bias
+        Parameters
+        ----------
+            inputs : Dict[tf.Tensor]
+                a dictionary containing the following entries:
+                'encoder_items','encoder_times', 'decoder_items', and
+                'decoder_times'
+
+        Returns
+        -------
+            enc_self_attn: tf.Tensor
+            enc_dec_attn: tf.Tensor
+            dec_self_attn: tf.Tensor
+                all attention is a tf.Tensor with
+                shape = [batch_size, 1, seq_len, seq_len],
+                where 1 is reserved to broadcast to num_heads
         """
 
         # 1. mask out padding
@@ -561,6 +613,31 @@ class DKTTLight(tf.keras.Model):
             # 2. encoder at pos t can att to encoder at pos 0 - t without att to future
             enc_self_attn_mask = get_decoder_self_attention_bias(seq_len)
             dec_self_attn_mask = enc_dec_attn_mask = enc_self_attn_mask
+        elif self.params['mask_out'] == 'time_block':
+            # in encoder: attn prev and curr time blocks
+            # in decoder: attn prev blocks
+            # useful in cases the inputs are a sequence of courses in semester blocks
+            # e.g.,
+            # encoder items: [0, x0, x1, x2], encoder blocks: [0, 1, 1, 2]
+            # decoder items: [x0, x1, x2, x3], decoder blocks: [1, 1, 2, 2]
+            # enc_self_attn_bias: x0 can attn to x1, even x1 is after x0
+            # enc_dec_attn_bias: x3 can only attn to x0, x1, not x2. because only x0 and x1 are in prev blocks
+            # dec_self_attn_bias: x3 can attn to x0, x1, x2 (in decoder inputs)
+            enc_self_attn_mask = get_block_attention_bias(
+                inputs['encoder_times'],
+                inputs['encoder_times'],
+                allow_current=True,
+                dtype=encoder_padding_bias.dtype)
+            enc_dec_attn_mask = get_block_attention_bias(
+                inputs['encoder_times'],
+                inputs['decoder_times'],
+                allow_current=False,
+                dtype=encoder_padding_bias.dtype)
+            dec_self_attn_mask = get_block_attention_bias(
+                inputs['decoder_times'],
+                inputs['decoder_times'],
+                allow_current=True,
+                dtype=encoder_padding_bias.dtype)
         else:
             raise NotImplementedError
 
