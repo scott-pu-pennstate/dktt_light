@@ -14,5 +14,4 @@ class PaddedBinaryCrossentropyLoss(tf.keras.losses.Loss):
         bxentropy = tf.keras.backend.binary_crossentropy(y_true, y_pred, from_logits=False)
 
         bxentropy *= weights
-        loss = tf.reduce_sum(bxentropy) / (tf.reduce_sum(weights) + 1e-4)
-        return loss
+        return tf.reduce_sum(bxentropy) / (tf.reduce_sum(weights) + 1e-4)

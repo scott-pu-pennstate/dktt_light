@@ -65,12 +65,10 @@ class ModelCompiler:
     def get_compiler_params(self):
         lr = tf.keras.optimizers.schedules.ExponentialDecay(**self.optimizer_params)
 
-        compile_params = {
+        return {
             'optimizer': tf.keras.optimizers.Adam(learning_rate=lr),
-            'loss': PaddedBinaryCrossentropyLoss(**self.loss_params)
+            'loss': PaddedBinaryCrossentropyLoss(**self.loss_params),
         }
-
-        return compile_params
 
 
 def train_one_cv(dataset, data_dir, cv_idx, data_config, model_params, fit_params, model_compiler):

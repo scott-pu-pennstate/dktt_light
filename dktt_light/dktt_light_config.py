@@ -11,24 +11,23 @@ DATA_DIR = os.path.join(
 NAME_CONVENTION = '{}-cv-{}-{}.csv'
 VERBOSE = 1
 
-config = {}
-
-config['assist2017'] = {
-    'id_col': 'ITEST_id',
-    'time_col': 'startTime',
-    'prob_col': 'problemId',
-    'skill_col': 'skill',
-    'score_col': 'correct',
-    'skill_sep': '~'
-}
-
-config['stat2011'] = {
-    'id_col': 'Anon Student Id',
-    'time_col': 'Time',
-    'prob_col': 'problem',
-    'skill_col': 'duplicated_problem',
-    'score_col': 'Outcome',
-    'skill_sep': '~'
+config = {
+    'assist2017': {
+        'id_col': 'ITEST_id',
+        'time_col': 'startTime',
+        'prob_col': 'problemId',
+        'skill_col': 'skill',
+        'score_col': 'correct',
+        'skill_sep': '~',
+    },
+    'stat2011': {
+        'id_col': 'Anon Student Id',
+        'time_col': 'Time',
+        'prob_col': 'problem',
+        'skill_col': 'duplicated_problem',
+        'score_col': 'Outcome',
+        'skill_sep': '~',
+    },
 }
 
 assist_2017_params = [
