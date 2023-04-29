@@ -24,10 +24,9 @@ class Encoder:
         # add special tokens to list
         self.vocab = ['<pad>', '<unk>'] + sorted(vocab)
 
-        # create vocab related dicts
-        self.dictionary = defaultdict(lambda: 1)
-        self.dictionary.update(dict(
-            zip(self.vocab, range(len(self.vocab)))))
+        self.dictionary = defaultdict(lambda: 1) | zip(
+            self.vocab, range(len(self.vocab))
+        )
 
     def encode(self, word):
         return self.dictionary[word]
@@ -97,7 +96,7 @@ class DataSet:
             self.test_df[self.skill_col] = self.test_df[self.prob_col]
 
         prob_encoder, skill_encoder = self.get_encoder()
-        logger.info(f'problem and skill encoders are created')
+        logger.info('problem and skill encoders are created')
 
         for df in [self.train_df, self.test_df]:
             # combine prob and score; skill and score
@@ -138,7 +137,8 @@ class DataSet:
 
     def extract_features(self, df, time_unit=3600.):
         df[self.time_col] = (df[self.time_col] - df[self.time_col].min()).apply(
-            lambda x: x if type(x) in set([int, float]) else x.total_seconds())  # time difference must be either numeric or time_delta
+            lambda x: x if type(x) in {int, float} else x.total_seconds()
+        )
         df = df.sort_values(self.time_col)
 
         # flatten df, initialize with id and time_col
@@ -176,10 +176,9 @@ class DataSet:
             hist_start = next_start
             hist_end = min(next_end - 1, len(seq) - 1)
 
-            next_seq = seq[next_start: next_end]
             hist_seq = seq[hist_start: hist_end]
 
-            next_seqs.append(next_seq)
+            next_seqs.append(seq[hist_start:next_end])
             hist_seqs.append(hist_seq)
 
         return hist_seqs, next_seqs

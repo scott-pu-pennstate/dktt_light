@@ -124,7 +124,7 @@ class EmbeddingSharedWeights(tf.keras.layers.Layer):
                 nested_inputs['states'],
                 nested_inputs['query_items'])
         else:
-            raise ValueError('mode {} is not valid'.format(mode))
+            raise ValueError(f'mode {mode} is not valid')
 
     def _embedding(self, items, normalize=True):
         # item = (q, c), shape = [batch_size, seq_len]
@@ -526,12 +526,13 @@ class DKTTLight(tf.keras.Model):
             enc_dec_attn_bias,  # this is for enc_dec_attention_layer
             training=training)
 
-        logits = self.embedding_layer(
-            {'states': decoder_outputs,  # decoder_outputs,
-             'query_items': decoder_items},
-            mode='linear')  # shape = [batch_size, seq_len]
-
-        return logits
+        return self.embedding_layer(
+            {
+                'states': decoder_outputs,  # decoder_outputs,
+                'query_items': decoder_items,
+            },
+            mode='linear',
+        )
 
     def get_attention_bias(self, inputs):
         r""" get attention bias
@@ -550,20 +551,19 @@ class DKTTLight(tf.keras.Model):
         # 2. mask out based on positions
         # bias shape = [1, 1, seq_len, seq_len] or [batch_size, 1, seq_len, seq_len]
         seq_len = tf.shape(inputs['encoder_items'])[1]
-        if self.params['mask_out'] == 'future':
-            # attn only self and past
-            # this assumes there is at least 1 lag between encoder and decoder positions
-            # e.g.,
-            # encoder items: [x_0, x_1, x_2, ..., x_{n - 1}]
-            # decoder items: [x_1, x_2, x_3, ..., x_{n}]
-            # so:
-            # 1. decoder at pos t can att to encoder at pos t without att to present and future
-            # 2. encoder at pos t can att to encoder at pos 0 - t without att to future
-            enc_self_attn_mask = get_decoder_self_attention_bias(seq_len)
-            dec_self_attn_mask = enc_dec_attn_mask = enc_self_attn_mask
-        else:
+        if self.params['mask_out'] != 'future':
             raise NotImplementedError
 
+        # attn only self and past
+        # this assumes there is at least 1 lag between encoder and decoder positions
+        # e.g.,
+        # encoder items: [x_0, x_1, x_2, ..., x_{n - 1}]
+        # decoder items: [x_1, x_2, x_3, ..., x_{n}]
+        # so:
+        # 1. decoder at pos t can att to encoder at pos t without att to present and future
+        # 2. encoder at pos t can att to encoder at pos 0 - t without att to future
+        enc_self_attn_mask = get_decoder_self_attention_bias(seq_len)
+        dec_self_attn_mask = enc_dec_attn_mask = enc_self_attn_mask
         enc_self_attn_bias = tf.math.minimum(encoder_padding_bias, enc_self_attn_mask)
         enc_dec_attn_bias = tf.math.minimum(encoder_padding_bias, enc_dec_attn_mask)
         dec_self_attn_bias = tf.math.minimum(decoder_padding_bias, dec_self_attn_mask)
